@@ -1,6 +1,15 @@
 #![no_std]
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, String,
+    Symbol, Vec,
+};
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol, Vec};
+mod prescription;
+mod prescription_tests;
+
+pub use crate::prescription::{
+    ContactLensData, LensType, OptionalContactLensData, Prescription, PrescriptionData,
+};
 
 /// Storage keys for the contract
 const ADMIN: Symbol = symbol_short!("ADMIN");
@@ -74,17 +83,17 @@ pub struct AccessGrant {
 }
 
 /// Contract errors
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum ContractError {
-    NotInitialized,
-    AlreadyInitialized,
-    Unauthorized,
-    UserNotFound,
-    RecordNotFound,
-    InvalidInput,
-    AccessDenied,
-    Paused,
+    NotInitialized = 1,
+    AlreadyInitialized = 2,
+    Unauthorized = 3,
+    UserNotFound = 4,
+    RecordNotFound = 5,
+    InvalidInput = 6,
+    AccessDenied = 7,
+    Paused = 8,
 }
 
 #[contract]
@@ -163,12 +172,7 @@ impl VisionRecordsContract {
 
         // Generate record ID
         let counter_key = symbol_short!("REC_CTR");
-        let record_id: u64 = env
-            .storage()
-            .instance()
-            .get(&counter_key)
-            .unwrap_or(0)
-            + 1;
+        let record_id: u64 = env.storage().instance().get(&counter_key).unwrap_or(0) + 1;
         env.storage().instance().set(&counter_key, &record_id);
 
         let record = VisionRecord {
@@ -192,7 +196,9 @@ impl VisionRecordsContract {
             .get(&patient_key)
             .unwrap_or(Vec::new(&env));
         patient_records.push_back(record_id);
-        env.storage().persistent().set(&patient_key, &patient_records);
+        env.storage()
+            .persistent()
+            .set(&patient_key, &patient_records);
 
         Ok(record_id)
     }
@@ -242,18 +248,22 @@ impl VisionRecordsContract {
     /// Check access level
     pub fn check_access(env: Env, patient: Address, grantee: Address) -> AccessLevel {
         let key = (symbol_short!("ACCESS"), patient, grantee);
-        
+
         if let Some(grant) = env.storage().persistent().get::<_, AccessGrant>(&key) {
             if grant.expires_at > env.ledger().timestamp() {
                 return grant.level;
             }
         }
-        
+
         AccessLevel::None
     }
 
     /// Revoke access
-    pub fn revoke_access(env: Env, patient: Address, grantee: Address) -> Result<(), ContractError> {
+    pub fn revoke_access(
+        env: Env,
+        patient: Address,
+        grantee: Address,
+    ) -> Result<(), ContractError> {
         patient.require_auth();
 
         let key = (symbol_short!("ACCESS"), patient, grantee);
@@ -266,6 +276,72 @@ impl VisionRecordsContract {
     pub fn get_record_count(env: Env) -> u64 {
         let counter_key = symbol_short!("REC_CTR");
         env.storage().instance().get(&counter_key).unwrap_or(0)
+    }
+
+    /// Add a new prescription
+    pub fn add_prescription(
+        env: Env,
+        patient: Address,
+        provider: Address,
+        lens_type: LensType,
+        left_eye: PrescriptionData,
+        right_eye: PrescriptionData,
+        contact_data: OptionalContactLensData,
+        duration_seconds: u64,
+        metadata_hash: String,
+    ) -> Result<u64, ContractError> {
+        provider.require_auth();
+
+        // Check if provider is authorized (role check)
+        let provider_data = VisionRecordsContract::get_user(env.clone(), provider.clone())?;
+        if provider_data.role != Role::Optometrist && provider_data.role != Role::Ophthalmologist {
+            return Err(ContractError::Unauthorized);
+        }
+
+        // Generate ID
+        let counter_key = symbol_short!("RX_CTR");
+        let rx_id: u64 = env.storage().instance().get(&counter_key).unwrap_or(0) + 1;
+        env.storage().instance().set(&counter_key, &rx_id);
+
+        let rx = Prescription {
+            id: rx_id,
+            patient,
+            provider,
+            lens_type,
+            left_eye,
+            right_eye,
+            contact_data,
+            issued_at: env.ledger().timestamp(),
+            expires_at: env.ledger().timestamp() + duration_seconds,
+            verified: false,
+            metadata_hash,
+        };
+
+        prescription::save_prescription(&env, &rx);
+
+        Ok(rx_id)
+    }
+
+    /// Get a prescription by ID
+    pub fn get_prescription(env: Env, rx_id: u64) -> Result<Prescription, ContractError> {
+        prescription::get_prescription(&env, rx_id).ok_or(ContractError::RecordNotFound)
+    }
+
+    /// Get all prescription IDs for a patient
+    pub fn get_prescription_history(env: Env, patient: Address) -> Vec<u64> {
+        prescription::get_patient_history(&env, patient)
+    }
+
+    /// Verify a prescription (e.g., by a pharmacy or another provider)
+    pub fn verify_prescription(
+        env: Env,
+        rx_id: u64,
+        verifier: Address,
+    ) -> Result<bool, ContractError> {
+        // Ensure verifier exists
+        VisionRecordsContract::get_user(env.clone(), verifier.clone())?;
+
+        Ok(prescription::verify_prescription(&env, rx_id, verifier))
     }
 
     /// Contract version
@@ -308,9 +384,9 @@ mod test {
 
         let user = Address::generate(&env);
         let name = String::from_str(&env, "Dr. Smith");
-        
+
         client.register_user(&user, &Role::Optometrist, &name);
-        
+
         let user_data = client.get_user(&user);
         assert_eq!(user_data.role, Role::Optometrist);
         assert!(user_data.is_active);
@@ -331,10 +407,11 @@ mod test {
         let provider = Address::generate(&env);
         let data_hash = String::from_str(&env, "QmHash123");
 
-        let record_id = client.add_record(&patient, &provider, &RecordType::Examination, &data_hash);
-        
+        let record_id =
+            client.add_record(&patient, &provider, &RecordType::Examination, &data_hash);
+
         assert_eq!(record_id, 1);
-        
+
         let record = client.get_record(&record_id);
         assert_eq!(record.patient, patient);
         assert_eq!(record.provider, provider);
@@ -359,7 +436,7 @@ mod test {
 
         // Grant access
         client.grant_access(&patient, &doctor, &AccessLevel::Read, &86400);
-        
+
         assert_eq!(client.check_access(&patient, &doctor), AccessLevel::Read);
 
         // Revoke access
