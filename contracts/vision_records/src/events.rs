@@ -1,4 +1,4 @@
-use crate::{AccessLevel, RecordType, Role};
+use crate::{circuit_breaker::PauseScope, AccessLevel, RecordType, Role};
 use soroban_sdk::{symbol_short, Address, Env, String};
 
 /// Event published when the contract is initialized.
@@ -48,6 +48,24 @@ pub struct AccessGrantedEvent {
 pub struct AccessRevokedEvent {
     pub patient: Address,
     pub grantee: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when the contract pauses operations.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractPausedEvent {
+    pub caller: Address,
+    pub scope: PauseScope,
+    pub timestamp: u64,
+}
+
+/// Event published when the contract resumes operations.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractResumedEvent {
+    pub caller: Address,
+    pub scope: PauseScope,
     pub timestamp: u64,
 }
 
@@ -114,6 +132,26 @@ pub fn publish_access_revoked(env: &Env, patient: Address, grantee: Address) {
     let data = AccessRevokedEvent {
         patient,
         grantee,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+pub fn publish_contract_paused(env: &Env, caller: Address, scope: PauseScope) {
+    let topics = (symbol_short!("PAUSED"), caller.clone());
+    let data = ContractPausedEvent {
+        caller,
+        scope,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+pub fn publish_contract_resumed(env: &Env, caller: Address, scope: PauseScope) {
+    let topics = (symbol_short!("RESUMED"), caller.clone());
+    let data = ContractResumedEvent {
+        caller,
+        scope,
         timestamp: env.ledger().timestamp(),
     };
     env.events().publish(topics, data);

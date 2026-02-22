@@ -1,7 +1,7 @@
 #![no_std]
-pub mod rbac;
-
+pub mod circuit_breaker;
 pub mod events;
+pub mod rbac;
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol, Vec,
@@ -129,6 +129,10 @@ impl VisionRecordsContract {
         role: Role,
         name: String,
     ) -> Result<(), ContractError> {
+        circuit_breaker::require_not_paused(
+            &env,
+            &circuit_breaker::PauseScope::Function(symbol_short!("REG_USR")),
+        )?;
         caller.require_auth();
 
         if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
@@ -173,6 +177,10 @@ impl VisionRecordsContract {
         record_type: RecordType,
         data_hash: String,
     ) -> Result<u64, ContractError> {
+        circuit_breaker::require_not_paused(
+            &env,
+            &circuit_breaker::PauseScope::Function(symbol_short!("ADD_REC")),
+        )?;
         caller.require_auth();
 
         let has_perm = if caller == provider {
@@ -248,6 +256,10 @@ impl VisionRecordsContract {
         level: AccessLevel,
         duration_seconds: u64,
     ) -> Result<(), ContractError> {
+        circuit_breaker::require_not_paused(
+            &env,
+            &circuit_breaker::PauseScope::Function(symbol_short!("GRT_ACC")),
+        )?;
         caller.require_auth();
 
         let has_perm = if caller == patient {
@@ -297,6 +309,10 @@ impl VisionRecordsContract {
         patient: Address,
         grantee: Address,
     ) -> Result<(), ContractError> {
+        circuit_breaker::require_not_paused(
+            &env,
+            &circuit_breaker::PauseScope::Function(symbol_short!("REV_ACC")),
+        )?;
         patient.require_auth();
 
         let key = (symbol_short!("ACCESS"), patient.clone(), grantee.clone());
@@ -365,7 +381,29 @@ impl VisionRecordsContract {
     pub fn check_permission(env: Env, user: Address, permission: Permission) -> bool {
         rbac::has_permission(&env, &user, &permission)
     }
+
+    // ======================== Circuit Breaker Endpoints ========================
+
+    pub fn pause_contract(
+        env: Env,
+        caller: Address,
+        scope: circuit_breaker::PauseScope,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        circuit_breaker::pause_contract(&env, &caller, scope)
+    }
+
+    pub fn resume_contract(
+        env: Env,
+        caller: Address,
+        scope: circuit_breaker::PauseScope,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        circuit_breaker::resume_contract(&env, &caller, scope)
+    }
 }
 
+#[cfg(test)]
+mod test_pause;
 #[cfg(test)]
 mod test_rbac;

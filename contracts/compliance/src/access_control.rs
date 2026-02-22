@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)] 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Role {
     Admin,
     Clinician,
@@ -26,23 +26,43 @@ impl AccessControl {
         let mut ac = AccessControl::default();
         ac.role_permissions.insert(
             Role::Admin,
-            PermissionSet { can_read: true, can_write: true, can_audit: true },
+            PermissionSet {
+                can_read: true,
+                can_write: true,
+                can_audit: true,
+            },
         );
         ac.role_permissions.insert(
             Role::Clinician,
-            PermissionSet { can_read: true, can_write: true, can_audit: false },
+            PermissionSet {
+                can_read: true,
+                can_write: true,
+                can_audit: false,
+            },
         );
         ac.role_permissions.insert(
             Role::Researcher,
-            PermissionSet { can_read: true, can_write: false, can_audit: false },
+            PermissionSet {
+                can_read: true,
+                can_write: false,
+                can_audit: false,
+            },
         );
         ac.role_permissions.insert(
             Role::Auditor,
-            PermissionSet { can_read: true, can_write: false, can_audit: true },
+            PermissionSet {
+                can_read: true,
+                can_write: false,
+                can_audit: true,
+            },
         );
         ac.role_permissions.insert(
             Role::Patient,
-            PermissionSet { can_read: true, can_write: false, can_audit: false },
+            PermissionSet {
+                can_read: true,
+                can_write: false,
+                can_audit: false,
+            },
         );
         ac
     }
@@ -56,6 +76,7 @@ impl AccessControl {
                 _ => false,
             }
         } else {
-            false 
+            false
+        }
     }
 }
