@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.1.0"
+version = "1.2.2"
 authors = ["Stellar-Teye Contributors"]
 license = "MIT"
 edition = "2021"
@@ -16,6 +16,8 @@ rust-version = "1.78"
 
 [workspace.dependencies]
 soroban-sdk = "22.0.0"
+proptest = "1"
+proptest-derive = "0.4"
 
 [profile.release]
 opt-level = "z"

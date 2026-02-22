@@ -1,5 +1,5 @@
 [package]
-name = "vision_records"
+name = "identity"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -12,12 +12,7 @@ crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = { workspace = true }
+common = { path = "../common" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-proptest = { workspace = true }
-proptest-derive = { workspace = true }
-
-[features]
-testutils = ["soroban-sdk/testutils"]
