@@ -125,7 +125,11 @@ impl StakingContract {
         Self::update_reward(&env, &staker);
 
         // 2. Pull tokens from the staker into the contract.
-        let stake_token: Address = env.storage().instance().get(&STAKE_TOKEN).unwrap();
+        let stake_token: Address = env
+            .storage()
+            .instance()
+            .get(&STAKE_TOKEN)
+            .ok_or(ContractError::NotInitialized)?;
         token::Client::new(&env, &stake_token).transfer(
             &staker,
             &env.current_contract_address(),
@@ -231,7 +235,11 @@ impl StakingContract {
         timelock::store_request(&env, &request);
 
         // Return tokens to staker.
-        let stake_token: Address = env.storage().instance().get(&STAKE_TOKEN).unwrap();
+        let stake_token: Address = env
+            .storage()
+            .instance()
+            .get(&STAKE_TOKEN)
+            .ok_or(ContractError::NotInitialized)?;
         token::Client::new(&env, &stake_token).transfer(
             &env.current_contract_address(),
             &staker,
@@ -268,7 +276,11 @@ impl StakingContract {
         env.storage().persistent().set(&earned_key, &0i128);
 
         // 3. Transfer reward tokens to the staker.
-        let reward_token: Address = env.storage().instance().get(&REWARD_TOKEN).unwrap();
+        let reward_token: Address = env
+            .storage()
+            .instance()
+            .get(&REWARD_TOKEN)
+            .ok_or(ContractError::NotInitialized)?;
         token::Client::new(&env, &reward_token).transfer(
             &env.current_contract_address(),
             &staker,

@@ -266,7 +266,7 @@ jobs:
           echo "- Integration Tests: ${{ needs.test-integration.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Property Tests: ${{ needs.test-property.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Build: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.test-unit.result }}" != "success" ] || \
              [ "${{ needs.test-integration.result }}" != "success" ] || \
              [ "${{ needs.test-property.result }}" != "success" ] || \
