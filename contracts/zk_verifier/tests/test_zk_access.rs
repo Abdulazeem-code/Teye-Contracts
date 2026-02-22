@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
-use zk_verifier::{ZkVerifierContract, ZkVerifierContractClient};
 use zk_verifier::ZkAccessHelper;
+use zk_verifier::{ZkVerifierContract, ZkVerifierContractClient};
 
 #[test]
 fn test_valid_proof_verification_and_audit() {
