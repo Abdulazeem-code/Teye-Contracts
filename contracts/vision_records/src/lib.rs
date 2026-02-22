@@ -373,12 +373,8 @@ impl VisionRecordsContract {
     }
 }
 
-
-
-
 #[cfg(test)]
 mod test;
-
 
 #[cfg(test)]
 mod test_rbac;

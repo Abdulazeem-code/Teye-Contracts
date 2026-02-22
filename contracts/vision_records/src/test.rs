@@ -1,5 +1,3 @@
-
-
 use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 use crate::*;
@@ -96,5 +94,3 @@ fn test_access_control() {
     client.revoke_access(&patient, &doctor);
     assert_eq!(client.check_access(&patient, &doctor), AccessLevel::None);
 }
-
-
