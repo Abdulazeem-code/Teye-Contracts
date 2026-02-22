@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # health_check.sh
-# 
+#
 # A basic health check script for the Vision Records contract and Soroban RPC.
 # This script can be run manually or triggered by a cronjob/external monitor
 # to ping the network and push metrics to a Prometheus pushgateway.
@@ -32,7 +32,7 @@ fi
 if echo "$response" | grep -q '"status":"healthy"'; then
     echo "RPC is healthy."
 else
-    # Some older soroban-rpc versions return just 'ok' or similar variants. 
+    # Some older soroban-rpc versions return just 'ok' or similar variants.
     # Just checking for basic RPC json response is fallback.
     if echo "$response" | grep -q '"jsonrpc":"2.0"'; then
         echo "RPC responded, assuming healthy for now."
