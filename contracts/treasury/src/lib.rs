@@ -67,7 +67,7 @@ fn is_signer(env: &Env, who: &Address) -> bool {
         .instance()
         .get(&CONFIG)
         .expect("config not set");
-    cfg.signers.iter().any(|s| s == who)
+    cfg.signers.iter().any(|s| s == *who)
 }
 
 fn load_config(env: &Env) -> TreasuryConfig {
@@ -92,12 +92,12 @@ fn allocation_key(category: &Symbol) -> (Symbol, Symbol) {
     (ALLOCATION, category.clone())
 }
 
-fn has_approval(env: &Env, proposal: &Proposal, signer: &Address) -> bool {
-    proposal.approvals.iter().any(|s| s == signer)
+fn has_approval(_env: &Env, proposal: &Proposal, signer: &Address) -> bool {
+    proposal.approvals.iter().any(|s| s == *signer)
 }
 
 fn count_approvals(proposal: &Proposal) -> u32 {
-    proposal.approvals.len() as u32
+    proposal.approvals.len()
 }
 
 // ── Contract ───────────────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ impl TreasuryContract {
         if signers.is_empty() {
             panic!("no signers");
         }
-        if threshold == 0 || threshold as u32 > signers.len() as u32 {
+        if threshold == 0 || threshold > signers.len() {
             panic!("invalid threshold");
         }
 
@@ -298,4 +298,3 @@ impl TreasuryContract {
         }
     }
 }
-

@@ -4,7 +4,7 @@
 mod test;
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Env, Symbol, Vec,
 };
 
 // ── Storage keys ────────────────────────────────────────────────────────────────
@@ -74,10 +74,7 @@ impl AnalyticsContract {
     }
 
     pub fn get_admin(env: Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&ADMIN)
-            .expect("admin not set")
+        env.storage().instance().get(&ADMIN).expect("admin not set")
     }
 
     pub fn get_aggregator(env: Env) -> Address {
@@ -226,4 +223,3 @@ impl AnalyticsContract {
         total
     }
 }
-

@@ -3,10 +3,12 @@ extern crate std;
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
     token::{Client as TokenClient, StellarAssetClient},
-    Address, Env, Symbol, String,
+    Address, Env, String, Symbol,
 };
 
-use crate::{AllocationSummary, ProposalStatus, TreasuryConfig, TreasuryContract, TreasuryContractClient};
+use crate::{
+    AllocationSummary, ProposalStatus, TreasuryConfig, TreasuryContract, TreasuryContractClient,
+};
 
 fn setup() -> (Env, TreasuryContractClient<'static>, Address, Address) {
     let env = Env::default();
@@ -41,15 +43,15 @@ fn setup() -> (Env, TreasuryContractClient<'static>, Address, Address) {
 
 #[test]
 fn test_initialize_and_get_config() {
-    let (env, client, signer1, signer2) = setup();
+    let (_env, client, signer1, signer2) = setup();
 
     let cfg: TreasuryConfig = client.get_config();
     assert_eq!(cfg.signers.len(), 2);
     assert_eq!(cfg.threshold, 2);
 
     // Ensure both signers are recorded.
-    assert!(cfg.signers.iter().any(|s| s == &signer1));
-    assert!(cfg.signers.iter().any(|s| s == &signer2));
+    assert!(cfg.signers.iter().any(|s| s == signer1));
+    assert!(cfg.signers.iter().any(|s| s == signer2));
 }
 
 #[test]
@@ -60,7 +62,7 @@ fn test_create_approve_and_execute_proposal() {
 
     let recipient = Address::generate(&env);
     let amount = 500i128;
-    let category = Symbol::short("OPS");
+    let category = Symbol::new(&env, "OPS");
     let description = String::from_str(&env, "Operations budget");
     let expires_at = 1_000u64;
 
@@ -110,7 +112,7 @@ fn test_cannot_execute_expired_proposal() {
 
     let recipient = Address::generate(&env);
     let amount = 100i128;
-    let category = Symbol::short("R_AND_D");
+    let category = Symbol::new(&env, "R_AND_D");
     let description = String::from_str(&env, "Research grant");
     let expires_at = 150u64;
 
@@ -131,4 +133,3 @@ fn test_cannot_execute_expired_proposal() {
     // This should panic due to expiration.
     client.execute_proposal(&signer1, &id);
 }
-

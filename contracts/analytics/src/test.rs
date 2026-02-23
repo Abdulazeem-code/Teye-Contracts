@@ -1,9 +1,6 @@
 extern crate std;
 
-use soroban_sdk::{
-    testutils::{Address as _},
-    Address, Env, String, Symbol,
-};
+use soroban_sdk::{symbol_short, testutils::Address as _, Address, Env};
 
 use crate::{
     AnalyticsContract, AnalyticsContractClient, MetricDimensions, MetricValue, TrendPoint,
@@ -42,11 +39,11 @@ fn test_initialize_and_getters() {
 fn test_record_and_get_metric() {
     let (_env, client, _admin, aggregator) = setup();
 
-    let kind = Symbol::short("record_count");
+    let kind = symbol_short!("REC_CNT");
     let dims = MetricDimensions {
-        region: Some(Symbol::short("EU")),
-        age_band: Some(Symbol::short("A40_64")),
-        condition: Some(Symbol::short("MYOPIA")),
+        region: Some(symbol_short!("EU")),
+        age_band: Some(symbol_short!("A40_64")),
+        condition: Some(symbol_short!("MYOPIA")),
         time_bucket: 1_700_000_000,
     };
 
@@ -67,8 +64,8 @@ fn test_record_and_get_metric() {
 fn test_trend_over_time_buckets() {
     let (_env, client, _admin, aggregator) = setup();
 
-    let kind = Symbol::short("record_count");
-    let region = Some(Symbol::short("US"));
+    let kind = symbol_short!("REC_CNT");
+    let region = Some(symbol_short!("US"));
     let age_band = None;
     let condition = None;
 
@@ -111,7 +108,7 @@ fn test_trend_over_time_buckets() {
 fn test_population_metrics_for_anonymous_bucket() {
     let (_env, client, _admin, aggregator) = setup();
 
-    let kind = Symbol::short("visit_count");
+    let kind = symbol_short!("VIS_CNT");
     let dims = MetricDimensions {
         region: None,
         age_band: None,
@@ -125,4 +122,3 @@ fn test_population_metrics_for_anonymous_bucket() {
     assert_eq!(total.count, 100);
     assert_eq!(total.sum, 500);
 }
-
