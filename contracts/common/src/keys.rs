@@ -4,6 +4,10 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+// Aliases to disambiguate from Soroban SDK types
+type StdString = String;
+type StdVec<T> = Vec<T>;
+
 #[derive(Debug, Clone, Default)]
 pub struct AuditEntry {
     pub actor: String,

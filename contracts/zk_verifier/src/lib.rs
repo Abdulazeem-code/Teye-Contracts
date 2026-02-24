@@ -213,10 +213,7 @@ impl ZkVerifierContract {
     }
 
     /// Cancel a pending admin transfer. Only the current admin can call this.
-    pub fn cancel_admin_transfer(
-        env: Env,
-        current_admin: Address,
-    ) -> Result<(), ContractError> {
+    pub fn cancel_admin_transfer(env: Env, current_admin: Address) -> Result<(), ContractError> {
         Self::require_admin(&env, &current_admin)?;
 
         let pending: Address = env
@@ -364,7 +361,12 @@ impl ZkVerifierContract {
         request.user.require_auth();
 
         validate_request(&request).map_err(|err| {
-            events::publish_access_rejected(&env, request.user.clone(), request.resource_id.clone(), err);
+            events::publish_access_rejected(
+                &env,
+                request.user.clone(),
+                request.resource_id.clone(),
+                err,
+            );
             err
         })?;
 
@@ -379,7 +381,12 @@ impl ZkVerifierContract {
         }
 
         Self::check_and_update_rate_limit(&env, &request.user).map_err(|err| {
-            events::publish_access_rejected(&env, request.user.clone(), request.resource_id.clone(), err);
+            events::publish_access_rejected(
+                &env,
+                request.user.clone(),
+                request.resource_id.clone(),
+                err,
+            );
             err
         })?;
 
