@@ -11,28 +11,39 @@ fn extend_whitelist_ttl(env: &Env, key: &(Symbol, Address)) {
         .extend_ttl(key, WL_TTL_THRESHOLD, WL_TTL_EXTEND_TO);
 }
 
+fn extend_whitelist_instance_ttl(env: &Env) {
+    env.storage()
+        .instance()
+        .extend_ttl(WL_TTL_THRESHOLD, WL_TTL_EXTEND_TO);
+}
+
 /// Enables or disables whitelist enforcement globally for the contract.
 pub fn set_whitelist_enabled(env: &Env, enabled: bool) {
     env.storage().instance().set(&WL_ENABLED, &enabled);
+    extend_whitelist_instance_ttl(env);
 }
 
 /// Returns whether whitelist enforcement is globally enabled.
 pub fn is_whitelist_enabled(env: &Env) -> bool {
-    env.storage().instance().get(&WL_ENABLED).unwrap_or(false)
+    let enabled = env.storage().instance().get(&WL_ENABLED).unwrap_or(false);
+    if enabled {
+        extend_whitelist_instance_ttl(env);
+    }
+    enabled
 }
 
 /// Adds an address to the whitelist.
 pub fn add_to_whitelist(env: &Env, address: &Address) {
     let key = (WL_ADDR, address.clone());
-    env.storage()
-        .persistent()
-        .set(&key, &true);
+    env.storage().persistent().set(&key, &true);
     extend_whitelist_ttl(env, &key);
 }
 
 /// Removes an address from the whitelist.
 pub fn remove_from_whitelist(env: &Env, address: &Address) {
-    env.storage().persistent().remove(&(WL_ADDR, address.clone()));
+    env.storage()
+        .persistent()
+        .remove(&(WL_ADDR, address.clone()));
 }
 
 /// Returns whether an address is in the whitelist.

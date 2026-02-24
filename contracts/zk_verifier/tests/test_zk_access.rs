@@ -227,7 +227,10 @@ fn test_whitelist_admin_only_management() {
 
     let add_res = client.try_add_to_whitelist(&non_admin, &user);
     assert!(add_res.is_err());
-    assert!(matches!(add_res.unwrap_err(), Ok(ContractError::Unauthorized)));
+    assert!(matches!(
+        add_res.unwrap_err(),
+        Ok(ContractError::Unauthorized)
+    ));
 
     let remove_res = client.try_remove_from_whitelist(&non_admin, &user);
     assert!(remove_res.is_err());

@@ -6,7 +6,7 @@
 )]
 
 use super::*;
-use soroban_sdk::testutils::{Address as _, Events};
+use soroban_sdk::testutils::{Address as _, Events, Ledger};
 use soroban_sdk::{symbol_short, Env, IntoVal, TryIntoVal};
 
 #[test]
@@ -123,6 +123,12 @@ fn test_whitelist_enforced_for_add_records_batch() {
     let provider = Address::generate(&env);
     let patient = Address::generate(&env);
     client.initialize(&admin);
+    client.register_user(
+        &admin,
+        &provider,
+        &Role::Optometrist,
+        &String::from_str(&env, "Provider"),
+    );
 
     client.set_whitelist_enabled(&admin, &true);
     assert!(!client.is_whitelisted(&provider));
@@ -136,7 +142,10 @@ fn test_whitelist_enforced_for_add_records_batch() {
 
     let blocked = client.try_add_records(&provider, &records);
     assert!(blocked.is_err());
-    assert!(matches!(blocked.unwrap_err(), Ok(ContractError::Unauthorized)));
+    assert!(matches!(
+        blocked.unwrap_err(),
+        Ok(ContractError::Unauthorized)
+    ));
 
     client.add_to_whitelist(&admin, &provider);
     let allowed = client.try_add_records(&provider, &records);
@@ -158,7 +167,10 @@ fn test_whitelist_admin_only_management() {
 
     let add_res = client.try_add_to_whitelist(&non_admin, &target);
     assert!(add_res.is_err());
-    assert!(matches!(add_res.unwrap_err(), Ok(ContractError::Unauthorized)));
+    assert!(matches!(
+        add_res.unwrap_err(),
+        Ok(ContractError::Unauthorized)
+    ));
 
     let remove_res = client.try_remove_from_whitelist(&non_admin, &target);
     assert!(remove_res.is_err());
