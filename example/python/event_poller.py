@@ -78,7 +78,7 @@ def main():
             print(f"Payload validation error: {e}")
         except TypeError as e:
             print(f"Pagination type error: {e}")
-        except Exception as e:
+        except Exception:
             raise
             
         time.sleep(POLL_INTERVAL_SECONDS)
