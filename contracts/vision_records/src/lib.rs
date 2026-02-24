@@ -311,6 +311,7 @@ impl VisionRecordsContract {
     }
 
     /// Enables or disables whitelist enforcement globally.
+    /// Callable by owner admin or SystemAdmin.
     pub fn set_whitelist_enabled(
         env: Env,
         caller: Address,
@@ -318,14 +319,16 @@ impl VisionRecordsContract {
     ) -> Result<(), ContractError> {
         caller.require_auth();
         let admin = Self::get_admin(env.clone())?;
-        if caller != admin {
+        let has_system_admin = rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+        if caller != admin && !has_system_admin {
             return Err(ContractError::Unauthorized);
         }
         whitelist::set_whitelist_enabled(&env, enabled);
         Ok(())
     }
 
-    /// Adds an address to the whitelist. Admin-only.
+    /// Adds an address to the whitelist.
+    /// Callable by owner admin or SystemAdmin.
     pub fn add_to_whitelist(
         env: Env,
         caller: Address,
@@ -333,14 +336,16 @@ impl VisionRecordsContract {
     ) -> Result<(), ContractError> {
         caller.require_auth();
         let admin = Self::get_admin(env.clone())?;
-        if caller != admin {
+        let has_system_admin = rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+        if caller != admin && !has_system_admin {
             return Err(ContractError::Unauthorized);
         }
         whitelist::add_to_whitelist(&env, &user);
         Ok(())
     }
 
-    /// Removes an address from the whitelist. Admin-only.
+    /// Removes an address from the whitelist.
+    /// Callable by owner admin or SystemAdmin.
     pub fn remove_from_whitelist(
         env: Env,
         caller: Address,
@@ -348,7 +353,8 @@ impl VisionRecordsContract {
     ) -> Result<(), ContractError> {
         caller.require_auth();
         let admin = Self::get_admin(env.clone())?;
-        if caller != admin {
+        let has_system_admin = rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+        if caller != admin && !has_system_admin {
             return Err(ContractError::Unauthorized);
         }
         whitelist::remove_from_whitelist(&env, &user);
@@ -377,7 +383,7 @@ impl VisionRecordsContract {
         )?;
         caller.require_auth();
 
-        if !whitelist::require_whitelisted(&env, &caller) {
+        if !whitelist::check_whitelist_access(&env, &caller) {
             return Err(ContractError::Unauthorized);
         }
 
@@ -471,7 +477,7 @@ impl VisionRecordsContract {
         )?;
         caller.require_auth();
 
-        if !whitelist::require_whitelisted(&env, &caller) {
+        if !whitelist::check_whitelist_access(&env, &caller) {
             return Err(ContractError::Unauthorized);
         }
 
@@ -562,7 +568,7 @@ impl VisionRecordsContract {
             return Err(ContractError::InvalidInput);
         }
 
-        if !whitelist::require_whitelisted(&env, &provider) {
+        if !whitelist::check_whitelist_access(&env, &provider) {
             return Err(ContractError::Unauthorized);
         }
 

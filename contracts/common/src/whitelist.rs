@@ -2,8 +2,8 @@ use soroban_sdk::{symbol_short, Address, Env, Symbol};
 
 const WL_ENABLED: Symbol = symbol_short!("WL_EN");
 const WL_ADDR: Symbol = symbol_short!("WL_ADR");
-const WL_TTL_THRESHOLD: u32 = 5_184_000; // ~60 days
-const WL_TTL_EXTEND_TO: u32 = 10_368_000; // ~120 days
+const WL_TTL_THRESHOLD: u32 = 5_184_000; // 5,184,000 ledgers ~= 300 days (@ ~5s/ledger)
+const WL_TTL_EXTEND_TO: u32 = 10_368_000; // 10,368,000 ledgers ~= 600 days (@ ~5s/ledger)
 
 fn extend_whitelist_ttl(env: &Env, key: &(Symbol, Address)) {
     env.storage()
@@ -48,6 +48,6 @@ pub fn is_whitelisted(env: &Env, address: &Address) -> bool {
 /// Returns whether the address is allowed to call guarded functions.
 ///
 /// When whitelist enforcement is disabled, all addresses are allowed.
-pub fn require_whitelisted(env: &Env, address: &Address) -> bool {
+pub fn check_whitelist_access(env: &Env, address: &Address) -> bool {
     !is_whitelist_enabled(env) || is_whitelisted(env, address)
 }

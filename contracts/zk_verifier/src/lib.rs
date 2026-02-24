@@ -210,7 +210,7 @@ impl ZkVerifierContract {
 
         validate_request(&request)?;
 
-        if !whitelist::require_whitelisted(&env, &request.user) {
+        if !whitelist::check_whitelist_access(&env, &request.user) {
             return Err(ContractError::Unauthorized);
         }
 
