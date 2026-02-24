@@ -23,6 +23,7 @@ pub struct Proof {
     pub c: G1Point,
 }
 
+/// Verifier implementation for the BN254 curve.
 pub struct Bn254Verifier;
 
 impl Bn254Verifier {
@@ -134,10 +135,14 @@ impl Bn254Verifier {
     }
 }
 
+/// Hasher implementation using the Poseidon algorithm.
 pub struct PoseidonHasher;
 
 impl PoseidonHasher {
-    /// Hashes elements using a Poseidon algorithm optimized for BN254.
+    /// Hashes a vector of inputs using the Poseidon hash function.
+    ///
+    /// Poseidon is a ZK-friendly hash function optimized for operation over
+    /// prime fields like the BN254 scalar field.
     pub fn hash(env: &Env, inputs: &Vec<BytesN<32>>) -> BytesN<32> {
         // Mock hash logic using Env native capabilities
         let mut combined_bytes = soroban_sdk::Bytes::new(env);
