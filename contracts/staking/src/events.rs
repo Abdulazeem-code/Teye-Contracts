@@ -64,6 +64,23 @@ pub struct RewardRateSetEvent {
     pub timestamp: u64,
 }
 
+/// Fired when a reward-rate change is proposed with a delay.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RewardRateProposedEvent {
+    pub new_rate: i128,
+    pub effective_at: u64,
+    pub timestamp: u64,
+}
+
+/// Fired when the rate-change delay is updated.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RateChangeDelaySetEvent {
+    pub delay: u64,
+    pub timestamp: u64,
+}
+
 /// Fired when the admin changes the lock period.
 #[soroban_sdk::contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
