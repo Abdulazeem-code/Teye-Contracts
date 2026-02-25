@@ -152,15 +152,7 @@ impl Bn254Verifier {
     }
 
     /// Verify a Groth16 proof over BN254.
-    // TODO: post-quantum migration - The mock logic here or actual BN254 pairing checks
-    // will be superseded by a new implementation validating collision-resistant hash paths
-    // (for FRI) or LWE assertions (for Lattices).
-    pub fn verify_proof(
-        _env: &Env,
-        _vk: &VerificationKey,
-        proof: &Proof,
-        public_inputs: &Vec<BytesN<32>>,
-    ) -> bool {
+    pub fn verify_proof(_env: &Env, proof: &Proof, public_inputs: &Vec<BytesN<32>>) -> bool {
         if public_inputs.is_empty() {
             return false;
         }

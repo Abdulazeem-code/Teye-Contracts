@@ -704,6 +704,15 @@ impl StakingContract {
             if proposal_id == 0 {
                 return Err(ContractError::MultisigRequired);
             }
+<<<<<<< feature/116-implemented-nonce
+            multisig::mark_executed(&env, proposal_id).map_err(|_| ContractError::MultisigError)?;
+        } else {
+            Self::require_admin_tier(&env, &caller, &AdminTier::ContractAdmin)?;
+        }
+
+        if new_rate < 0 {
+            return Err(ContractError::InvalidInput);
+=======
             let proposal =
                 multisig::get_proposal(&env, proposal_id).ok_or(ContractError::MultisigRequired)?;
             if proposal.action != symbol_short!("RWD_RATE")
@@ -712,6 +721,7 @@ impl StakingContract {
                 return Err(ContractError::MultisigRequired);
             }
             multisig::mark_executed(&env, proposal_id).map_err(|_| ContractError::MultisigError)?;
+>>>>>>> master
         }
 
         let delay: u64 = env.storage().instance().get(&RATE_DELAY).unwrap_or(0);
@@ -794,6 +804,9 @@ impl StakingContract {
             if proposal_id == 0 {
                 return Err(ContractError::MultisigRequired);
             }
+            multisig::mark_executed(&env, proposal_id).map_err(|_| ContractError::MultisigError)?;
+        } else {
+            Self::require_admin_tier(&env, &caller, &AdminTier::ContractAdmin)?;
             let proposal =
                 multisig::get_proposal(&env, proposal_id).ok_or(ContractError::MultisigRequired)?;
             if proposal.action != symbol_short!("SET_LOCK")

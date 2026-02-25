@@ -194,11 +194,8 @@ impl IdentityContract {
             proof_b,
             proof_c,
             public_inputs,
-        );
-        if let Ok(verified) = &result {
-            events::emit_zk_credential_verified(&env, user, *verified);
-        }
-        result
+            0, // Default nonce; caller should set appropriately for replay protection
+        )
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────

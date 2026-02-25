@@ -30,10 +30,7 @@ pub mod keys;
 pub mod meta_tx;
 pub mod metering;
 pub mod multisig;
-pub mod policy_dsl;
-pub mod policy_engine;
-pub mod progressive_auth;
-pub mod pausable;
+pub mod nonce;
 pub mod rate_limit;
 pub mod reentrancy_guard;
 pub mod session;
@@ -49,8 +46,7 @@ pub use keys::*;
 pub use meta_tx::*;
 pub use metering::*;
 pub use multisig::*;
-pub use pausable::*;
-pub use progressive_auth::*;
+pub use nonce::*;
 pub use rate_limit::*;
 pub use reentrancy_guard::*;
 pub use session::*;
@@ -101,7 +97,10 @@ pub enum CommonError {
     /// One or more input parameters are invalid (e.g. empty list,
     /// zero duration, malformed hash).
     InvalidInput = 30,
-
+    /// Nonce does not match the expected value (replay or out-of-order).
+    InvalidNonce = 31,
+    /// Nonce counter would exceed u64::MAX.
+    NonceOverflow = 32,
     // ── Contract state (40–49) ───────────────────────────────
     /// The contract is currently paused and cannot process requests.
     Paused = 40,
@@ -119,6 +118,8 @@ mod tests {
         assert_eq!(CommonError::UserNotFound as u32, 20);
         assert_eq!(CommonError::RecordNotFound as u32, 21);
         assert_eq!(CommonError::InvalidInput as u32, 30);
+        assert_eq!(CommonError::InvalidNonce as u32, 31);
+        assert_eq!(CommonError::NonceOverflow as u32, 32);
         assert_eq!(CommonError::Paused as u32, 40);
     }
 }

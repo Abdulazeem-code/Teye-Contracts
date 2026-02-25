@@ -38,11 +38,18 @@ pub enum SensitivityLevel {
     Restricted,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OptionalRole {
+    None,
+    Some(Role),
+}
+
 /// Attribute-based access policy conditions
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PolicyConditions {
-    pub required_role: Role,
+    pub required_role: OptionalRole,
     pub time_restriction: TimeRestriction,
     pub required_credential: CredentialType,
     pub min_sensitivity_level: SensitivityLevel,
@@ -197,6 +204,10 @@ pub fn acl_group_key(name: &String) -> (Symbol, String) {
 pub fn user_groups_key(user: &Address) -> (Symbol, Address) {
     (symbol_short!("USR_GRPS"), user.clone())
 }
+
+// pub fn delegatee_index_key(delegatee: &Address) -> (Symbol, Address) {
+//     (symbol_short!("DEL_IDX"), delegatee.clone())
+// }
 
 pub fn access_policy_key(id: &String) -> (Symbol, String) {
     (symbol_short!("ACC_POL"), id.clone())
@@ -704,7 +715,7 @@ pub fn evaluate_policy(env: &Env, policy: &AccessPolicy, context: &PolicyContext
     let conditions = &policy.conditions;
 
     // Check role requirement
-    if conditions.required_role != Role::None {
+    if let OptionalRole::Some(required_role) = &conditions.required_role {
         if let Some(assignment) = get_active_assignment(env, &context.user) {
             if assignment.role != conditions.required_role {
                 return false;

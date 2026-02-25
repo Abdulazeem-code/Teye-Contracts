@@ -1,6 +1,12 @@
 #![no_std]
-#![allow(clippy::too_many_arguments, clippy::large_enum_variant)]
+#![allow(clippy::too_many_arguments)]
+
 extern crate alloc;
+use alloc::{
+    string::{String as StdString, ToString},
+    vec::Vec as StdVec,
+};
+
 pub mod appointment;
 pub mod audit;
 pub mod circuit_breaker;
@@ -21,14 +27,7 @@ use soroban_sdk::{
 };
 use alloc::string::ToString;
 
-use alloc::string::ToString;
-use key_manager::{DerivedKey, KeyManagerContractClient};
-use teye_common::{
-    admin_tiers, multisig, progressive_auth, risk_engine, session, whitelist, AdminTier,
-    KeyManager, StdString, StdVec,
-};
-use teye_common::concurrency::{ConflictEntry, FieldChange, ResolutionStrategy, UpdateOutcome, VersionStamp};
-use teye_common::metering::{MeteringHook, MeteringOpType};
+use teye_common::{admin_tiers, multisig, whitelist, AdminTier, KeyManager};
 
 /// Re-export the contract-specific error type at the crate root.
 pub use errors::ContractError;
@@ -583,13 +582,13 @@ impl VisionRecordsContract {
             return Err(ContractError::InvalidInput);
         }
 
-        if !Self::has_admin_access(&env, &caller, &AdminTier::ContractAdmin) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "set_rate_limit_config",
-                "admin_tier:ContractAdmin",
-            );
+        if !multisig::is_legacy_admin_allowed(&env) {
+            if !multisig::is_executable(&env, proposal_id) {
+                return Err(ContractError::Unauthorized); // Use Unauthorized for multisig rejection
+            }
+            multisig::mark_executed(&env, proposal_id).map_err(|_| ContractError::Unauthorized)?;
+        } else if !Self::has_admin_access(&env, &caller, &AdminTier::ContractAdmin) {
+            return Err(ContractError::Unauthorized);
         }
 
         let auth_session = session::start_or_refresh_session(
@@ -650,89 +649,16 @@ impl VisionRecordsContract {
     ) -> Result<(), ContractError> {
         caller.require_auth();
 
-        let admin = Self::get_admin(env.clone())?;
-        let has_system_admin = rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
-        if caller != admin && !has_system_admin {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "set_encryption_key",
-                "admin_or_system_admin",
-            );
-        }
-
-        let auth_session = session::start_or_refresh_session(
-            &env,
-            &caller,
-            progressive_auth::AuthLevel::Level4,
-            3_600,
-            900,
-        );
-        let expected_data_hash = encryption_key_action_hash(&env, &version, &key);
-        let policy = progressive_auth::default_policy();
-        let baseline = risk_engine::evaluate_risk(
-            &env,
-            &risk_engine::OperationRiskInput {
-                actor: caller.clone(),
-                operation: symbol_short!("SET_ENC"),
-                action: risk_engine::ActionType::AdminChange,
-                sensitivity: risk_engine::DataSensitivity::Sensitive,
-                context: risk_engine::RiskContext {
-                    off_hours: false,
-                    unusual_location: false,
-                    unusual_frequency: false,
-                    recent_auth_failures: 0,
-                    emergency_signal: false,
-                },
-            },
-            None,
-        );
-        let baseline_level = progressive_auth::enforce_for_risk(
-            &env,
-            &caller,
-            baseline.final_score,
-            auth_session.issued_at,
-            Some(proposal_id),
-            symbol_short!("SET_ENC"),
-            expected_data_hash.clone(),
-            false,
-            &policy,
-        )
-        .map_err(|_| ContractError::Unauthorized)?;
-
-        // Mid-operation step-up: large key material forces higher sensitivity.
-        if key.len() > 128 {
-            let elevated = risk_engine::evaluate_risk(
-                &env,
-                &risk_engine::OperationRiskInput {
-                    actor: caller.clone(),
-                    operation: symbol_short!("SET_ENC"),
-                    action: risk_engine::ActionType::AdminChange,
-                    sensitivity: risk_engine::DataSensitivity::Restricted,
-                    context: risk_engine::RiskContext {
-                        off_hours: false,
-                        unusual_location: false,
-                        unusual_frequency: true,
-                        recent_auth_failures: 0,
-                        emergency_signal: false,
-                    },
-                },
-                None,
-            );
-            let elevated_level = progressive_auth::level_for_score(elevated.final_score, &policy);
-            if progressive_auth::needs_step_up(baseline_level, elevated_level.clone()) {
-                progressive_auth::enforce_level(
-                    &env,
-                    &caller,
-                    elevated_level,
-                    auth_session.issued_at,
-                    Some(proposal_id),
-                    symbol_short!("SET_ENC"),
-                    expected_data_hash,
-                    false,
-                    &policy,
-                )
-                .map_err(|_| ContractError::Unauthorized)?;
+        if !multisig::is_legacy_admin_allowed(&env) {
+            if !multisig::is_executable(&env, proposal_id) {
+                return Err(ContractError::Unauthorized);
+            }
+            multisig::mark_executed(&env, proposal_id).map_err(|_| ContractError::Unauthorized)?;
+        } else {
+            let admin = Self::get_admin(env.clone())?;
+            let has_system_admin = rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+            if caller != admin && !has_system_admin {
+                return Err(ContractError::Unauthorized);
             }
         }
 
@@ -1004,24 +930,18 @@ impl VisionRecordsContract {
         let record_id: u64 = env.storage().instance().get(&counter_key).unwrap_or(0) + 1;
         env.storage().instance().set(&counter_key, &record_id);
 
-        // Determine encryption key material (KeyManager preferred, fallback to ENC_KEY).
-        let (master_bytes, key_version) =
-            if let Some((bytes, ver)) = Self::derive_key_manager_bytes(&env, record_id, None)? {
-                (bytes, Some(ver))
-            } else {
-                let current_version: Option<String> = env.storage().instance().get(&ENC_CUR);
-                let mut master_bytes: StdVec<u8> = StdVec::new();
-                if let Some(ver) = current_version.clone() {
-                    if let Some(sv) = env
-                        .storage()
-                        .persistent()
-                        .get::<(Symbol, String), String>(&(ENC_KEY, ver.clone()))
-                    {
-                        let hex = sv.to_string();
-                        if let Some(bytes) = teye_common::hex_to_bytes(&hex) {
-                            master_bytes = bytes;
-                        }
-                    }
+        // Determine current encryption key version (if any) and load master bytes
+        let current_version: Option<String> = env.storage().instance().get(&ENC_CUR);
+        let mut master_bytes: StdVec<u8> = StdVec::new();
+        if let Some(ver) = current_version.clone() {
+            if let Some(sv) = env
+                .storage()
+                .persistent()
+                .get::<(Symbol, String), String>(&(ENC_KEY, ver.clone()))
+            {
+                let hex = sv.to_string();
+                if let Some(bytes) = teye_common::hex_to_bytes(&hex) {
+                    master_bytes = bytes;
                 }
                 (master_bytes, current_version)
             };
@@ -1106,19 +1026,15 @@ impl VisionRecordsContract {
             .as_ref()
             .map(|(mgr, _)| KeyManagerContractClient::new(&env, mgr));
         let mut master_bytes_batch: StdVec<u8> = StdVec::new();
-        let mut current_version: Option<String> = None;
-        if key_manager_cfg.is_none() {
-            current_version = env.storage().instance().get(&ENC_CUR);
-            if let Some(ver) = current_version.clone() {
-                if let Some(sv) = env
-                    .storage()
-                    .persistent()
-                    .get::<(Symbol, String), String>(&(ENC_KEY, ver.clone()))
-                {
-                    let hex = sv.to_string();
-                    if let Some(bytes) = teye_common::hex_to_bytes(&hex) {
-                        master_bytes_batch = bytes;
-                    }
+        if let Some(ver) = current_version.clone() {
+            if let Some(sv) = env
+                .storage()
+                .persistent()
+                .get::<(Symbol, String), String>(&(ENC_KEY, ver.clone()))
+            {
+                let hex = sv.to_string();
+                if let Some(bytes) = teye_common::hex_to_bytes(&hex) {
+                    master_bytes_batch = bytes;
                 }
             }
         }
@@ -1255,18 +1171,14 @@ impl VisionRecordsContract {
                 let mut out_record = record.clone();
                 // Prefer KeyManager-derived key when configured; fallback to ENC_KEY
                 let mut master_bytes: StdVec<u8> = StdVec::new();
-                let mut used_key_manager = false;
-                if let Some(_cfg) = Self::get_key_manager_config(&env) {
-                    let version_u32 = out_record
-                        .key_version
-                        .as_ref()
-                        .and_then(Self::parse_key_version_u32);
-                    let allow_key_manager =
-                        out_record.key_version.is_none() || version_u32.is_some();
-                    if allow_key_manager {
-                        if let Some((bytes, _)) =
-                            Self::derive_key_manager_bytes(&env, record_id, version_u32)?
-                        {
+                if let Some(ver) = key_ver {
+                    if let Some(sv) = env
+                        .storage()
+                        .persistent()
+                        .get::<(Symbol, String), String>(&(ENC_KEY, ver.clone()))
+                    {
+                        let hex = sv.to_string();
+                        if let Some(bytes) = teye_common::hex_to_bytes(&hex) {
                             master_bytes = bytes;
                             used_key_manager = true;
                         }
@@ -1757,30 +1669,14 @@ impl VisionRecordsContract {
 
         if let Some(grant) = env.storage().persistent().get::<_, AccessGrant>(&key) {
             if grant.expires_at > env.ledger().timestamp() {
-                // ABAC is optional here: if no policies are configured, valid
-                // consent+grant should still provide access.
-                let default_policy_ids = [
-                    String::from_str(&env, "default_medical_access"),
-                    String::from_str(&env, "emergency_access"),
-                    String::from_str(&env, "research_access"),
-                ];
-                let mut has_any_policy = false;
-                for policy_id in default_policy_ids {
-                    let policy_key = rbac::access_policy_key(&policy_id);
-                    if env.storage().persistent().has(&policy_key) {
-                        has_any_policy = true;
-                        break;
-                    }
-                }
-
-                if !has_any_policy
-                    || evaluate_access_policies(&env, &grantee, None, Some(patient.clone()))
-                {
-                    return grant.level;
-                }
+                // Check if ABAC policies also allow this access
+                // let abac_allowed =
+                // evaluate_access_policies(&env, &grantee, None, Some(patient.clone()));
+                // if abac_allowed {
+                return grant.level;
+                // }
             }
         }
-
         AccessLevel::None
     }
 
